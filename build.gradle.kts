@@ -13,6 +13,7 @@ repositories {
 
 tasks.test {
     useJUnitPlatform()
+    ignoreFailures = false  // This will make the build fail when tests fail
 }
 kotlin {
     jvmToolchain(21)
