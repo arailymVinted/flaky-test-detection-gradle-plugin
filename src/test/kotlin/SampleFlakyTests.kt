@@ -26,7 +26,7 @@ class SampleFlakyTests {
 
     @Test
     fun testPassing02_stringEquality() {
-        val text = "Hello World"
+        val text = "Hello new World"
         assertEquals("Hello World", text)
     }
 
