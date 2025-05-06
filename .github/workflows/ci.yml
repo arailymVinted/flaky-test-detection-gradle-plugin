@@ -25,7 +25,7 @@ jobs:
       # Add this step to explicitly check for test failures
       - name: Check for test failures
         run: |
-          if grep -q "failing tests" build/reports/tests/test/index.html; then
+          if grep -q "failing test" build/reports/tests/test/index.html; then
             echo "::error::Tests failed! This build should not pass."
             exit 1
           fi
