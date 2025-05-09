@@ -16,7 +16,6 @@ import kotlin.math.abs
  *   - 5 with high flakiness (70-90% failure rate) (testHighFlakyXX)
  */
 class SampleFlakyTests {
-
     // ==================== CONSISTENTLY PASSING TESTS ====================
 
     @Test
@@ -26,7 +25,7 @@ class SampleFlakyTests {
 
     @Test
     fun testPassing02_stringEquality() {
-        val text = "Hello World"
+        val text = "Hello new World"
         assertEquals("Hello World", text)
     }
 
