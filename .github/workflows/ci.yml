@@ -20,7 +20,7 @@ jobs:
           cache: 'gradle'
 
       - name: Run tests
-        run: ./gradlew test
+        run: ./gradlew test --no-daemon --info --stacktrace --fail-on-test-failures
 
       # Add this step to explicitly check for test failures
       - name: Check for test failures

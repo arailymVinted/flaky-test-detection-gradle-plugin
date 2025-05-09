@@ -13,12 +13,27 @@ repositories {
 
 tasks.test {
     useJUnitPlatform()
+    // Always run tests, even when no inputs have changed
+    outputs.upToDateWhen { false }
     ignoreFailures = false  // This will make the build fail when tests fail
     failFast = false
     reports {
         html.required.set(true)
         junitXml.required.set(true)
     }
+
+    // Show test results in the console
+    testLogging {
+        events("passed", "skipped", "failed")
+        // To see full exception details
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showExceptions = true
+        showStackTraces = true
+    }
+
+    // Fail the build if tests fail
+    ignoreFailures = false
+
 }
 kotlin {
     jvmToolchain(21)
