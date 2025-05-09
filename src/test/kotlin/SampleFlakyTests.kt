@@ -16,7 +16,6 @@ import kotlin.math.abs
  *   - 5 with high flakiness (70-90% failure rate) (testHighFlakyXX)
  */
 class SampleFlakyTests {
-
     // ==================== CONSISTENTLY PASSING TESTS ====================
 
     @Test
