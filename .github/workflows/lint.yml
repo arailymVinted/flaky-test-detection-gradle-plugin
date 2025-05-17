@@ -2,9 +2,9 @@ name: Kotlin Lint Check
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
 
 jobs:
   ktlint:
@@ -13,10 +13,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # Updated to v4
 
       - name: Set up JDK
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4  # Updated to v4
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -27,29 +27,43 @@ jobs:
 
       - name: Run ktlint check
         run: ./gradlew ktlintCheck
-        continue-on-error: true  # Continue to report generation even if linting fails
+        continue-on-error: true
 
-      # Generate reports in multiple formats
-      - name: Generate ktlint reports
-        if: always()  # Run even if the previous step fails
-        run: |
-          ./gradlew ktlintCheckstyleReport  # Generates report in Checkstyle XML format
-          ./gradlew ktlintHtmlReport         # Generates HTML report
+      # Simplified report generation - one command at a time for better error handling
+      - name: Generate Checkstyle report
+        if: always()
+        run: ./gradlew ktlintCheckstyleReport
+        continue-on-error: true
 
-      # Upload reports as artifacts
+      # Only run HTML report if you've configured it in your build.gradle
+      - name: Generate HTML report
+        if: always()
+        run: ./gradlew ktlintHtmlReport
+        continue-on-error: true
+
+      # Updated artifact upload step
       - name: Upload ktlint reports
-        if: always()  # Run even if previous steps fail
-        uses: actions/upload-artifact@v3
+        if: always()
+        uses: actions/upload-artifact@v4  # Updated to v4
         with:
           name: ktlint-reports
-          path: |
-            **/build/reports/ktlint/
-            **/build/reports/ktlint-html/
+          path: build/reports/ktlint/
           retention-days: 14
+          if-no-files-found: warn  # Don't fail if files aren't found
 
-      # Optional: Add annotations to PR
+      # Simplified annotations - only if the report exists
+      - name: Check if report exists
+        id: check_files
+        run: |
+          if [ -f "$(find . -name 'checkstyle.xml' -path '*/build/reports/ktlint/*' | head -n 1)" ]; then
+            echo "report_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "report_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Only run annotations if report exists
       - name: GitHub Actions Annotations
-        if: always()
+        if: steps.check_files.outputs.report_exists == 'true'
         uses: yutailang0119/action-ktlint@v3
         with:
-          report-path: '**/build/reports/ktlint/**/checkstyle.xml'
+          report-path: "$(find . -name 'checkstyle.xml' -path '*/build/reports/ktlint/*' | head -n 1)"
