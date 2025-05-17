@@ -2,7 +2,10 @@ import kotlin.math.ln
 
 plugins {
     kotlin("jvm") version "1.9.22"
+    id("org.jlleitschuh.gradle.ktlint") version "11.6.1" // Use the latest version
+    id("org.jlleitschuh.gradle.ktlint-html") version "11.6.1" // HTML report plugin
 }
+
 
 group = "lt.vilniustech.aissayeva"
 version = "1.0-SNAPSHOT"
@@ -51,6 +54,8 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.8.1")
 
 }
+
+
 /*Initially I moved functions and data class into separate files, but for some reason I couldn't call them in this gradle file*/
 data class TestMetrics(
     val testName: String,

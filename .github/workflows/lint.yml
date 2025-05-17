@@ -1,0 +1,55 @@
+name: Kotlin Lint Check
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  ktlint:
+    name: Run ktlint check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Run ktlint check
+        run: ./gradlew ktlintCheck
+        continue-on-error: true  # Continue to report generation even if linting fails
+
+      # Generate reports in multiple formats
+      - name: Generate ktlint reports
+        if: always()  # Run even if the previous step fails
+        run: |
+          ./gradlew ktlintCheckstyleReport  # Generates report in Checkstyle XML format
+          ./gradlew ktlintHtmlReport         # Generates HTML report
+
+      # Upload reports as artifacts
+      - name: Upload ktlint reports
+        if: always()  # Run even if previous steps fail
+        uses: actions/upload-artifact@v3
+        with:
+          name: ktlint-reports
+          path: |
+            **/build/reports/ktlint/
+            **/build/reports/ktlint-html/
+          retention-days: 14
+
+      # Optional: Add annotations to PR
+      - name: GitHub Actions Annotations
+        if: always()
+        uses: yutailang0119/action-ktlint@v3
+        with:
+          report-path: '**/build/reports/ktlint/**/checkstyle.xml'
