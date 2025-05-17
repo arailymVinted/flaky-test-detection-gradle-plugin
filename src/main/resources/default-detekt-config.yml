@@ -1,0 +1,8 @@
+output-reports:
+  active: true
+  exclude:
+  - 'TxtOutputReport'
+  - 'XmlOutputReport'
+  #- 'HtmlOutputReport'
+  - 'MdOutputReport'
+  - 'SarifOutputReport'

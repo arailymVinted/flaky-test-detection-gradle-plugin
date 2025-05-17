@@ -1,0 +1,17 @@
+{
+  "name": "flaky-test-detection-gradle-plugin",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "danger": "danger",
+    "danger:ci": "danger ci"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "danger": "^13.0.4"
+  }
+}

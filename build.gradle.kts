@@ -2,6 +2,15 @@ import kotlin.math.ln
 
 plugins {
     kotlin("jvm") version "1.9.22"
+    id("io.gitlab.arturbosch.detekt") version("1.23.8")
+}
+
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    reports {
+        html.required.set(true)
+        xml.required.set(false)
+        txt.required.set(false)
+    }
 }
 
 group = "lt.vilniustech.aissayeva"
@@ -13,7 +22,27 @@ repositories {
 
 tasks.test {
     useJUnitPlatform()
+    // Always run tests, even when no inputs have changed
+    outputs.upToDateWhen { false }
     ignoreFailures = false  // This will make the build fail when tests fail
+    failFast = false
+    reports {
+        html.required.set(true)
+        junitXml.required.set(true)
+    }
+
+    // Show test results in the console
+    testLogging {
+        events("passed", "skipped", "failed")
+        // To see full exception details
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showExceptions = true
+        showStackTraces = true
+    }
+
+    // Fail the build if tests fail
+    ignoreFailures = false
+
 }
 kotlin {
     jvmToolchain(21)
@@ -31,6 +60,8 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.8.1")
 
 }
+
+
 /*Initially I moved functions and data class into separate files, but for some reason I couldn't call them in this gradle file*/
 data class TestMetrics(
     val testName: String,
@@ -101,7 +132,7 @@ tasks.register("runTestsMultipleTimes") {
         }
     }
 }
-// Modified analyzeTestFlakiness task with built-in @Ignore support
+
 tasks.register("analyzeTestFlakiness") {
     group = "Verification"
     description = "Analyzes test results for flakiness and adds @Ignore to flaky tests"
@@ -124,8 +155,10 @@ tasks.register("analyzeTestFlakiness") {
                     val testcases = text.split("<testcase")
                     testcases.drop(1).forEach { testcase ->
                         val name = testcase.substringAfter("name=\"").substringBefore("\"")
+                        val className = testcase.substringAfter("classname=\"").substringBefore("\"")
+                        val fullName = "$className.$name"
                         val failed = testcase.contains("<failure") || testcase.contains("<error")
-                        testResults.getOrPut(name) { mutableListOf() }.add(!failed)
+                        testResults.getOrPut(fullName) { mutableListOf() }.add(!failed)
                     }
                 }
         }
@@ -143,7 +176,7 @@ tasks.register("analyzeTestFlakiness") {
         }
 
         // Map to store tests to ignore
-        val testsToIgnore = mutableMapOf<String, MutableList<String>>()
+        val testsToIgnore = mutableMapOf<String, MutableList<Pair<String, String>>>()
 
         // Print results
         println("\nTest Flakiness Analysis")
@@ -155,34 +188,29 @@ tasks.register("analyzeTestFlakiness") {
             println("  Entropy: %.3f".format(metric.entropy))
             println("  Flip Rate: %.3f".format(metric.flipRate))
 
+
             val entropyStatus = when {
-                metric.entropy == 0.0 -> "Stable"
-                metric.entropy in 0.13..0.17 -> "Slightly Flaky"
-                metric.entropy in 0.18..0.48 -> "Flaky test"
-                metric.entropy > 0.48 -> "Very Flaky"
-                else -> "Failed to calculate flakiness for this test ${metric.testName}"
+                metric.entropy == 0.0 -> "Not Flaky (NF)"
+                metric.entropy in 0.13..0.17 -> "Slightly Flaky (SF)"
+                metric.entropy in 0.18..0.48 -> "Flaky"
+                metric.entropy >= 0.49 -> "Very Flaky (VF)"
+                else -> "Unknown"
             }
-            println("Flakiness Status by Entropy: $ entropyStatus ")
+            println("  Flakiness Status by Entropy: $entropyStatus")
+
             val flipRateStatus = when {
-                metric.flipRate == 0.0 -> "Stable"
-                metric.flipRate in 0.09..0.1-> "Slightly Flaky"
-                metric.flipRate in 0.11..0.31-> "Flaky test"
-                metric.flipRate > 0.31-> "Very Flaky"
-                else -> "Failed to calculate flakiness for this test ${metric.testName}"
+                metric.flipRate == 0.0 -> "Not Flaky (NF)"
+                metric.flipRate in 0.09..0.10 -> "Slightly Flaky (SF)"
+                metric.flipRate in 0.11..0.31 -> "Flaky"
+                metric.flipRate >= 0.32 -> "Very Flaky (VF)"
+                else -> "Unknown"
             }
-            println("Flakiness Status by FlipRate: $ flipRateStatus ")
+            println("  Flakiness Status by Flip Rate: $flipRateStatus")
 
-            val status = when {
-                metric.entropy == 0.0 && metric.flipRate == 0.0 -> "Stable"
-                metric.entropy in 0.13..0.17 && metric.flipRate in 0.09..0.1-> "Slightly Flaky"
-                metric.entropy in 0.18..0.48 && metric.flipRate in 0.11..0.31-> "Flaky test"
-                metric.entropy > 0.48 && metric.flipRate > 0.31-> "Very Flaky"
-                else -> "Failed to calculate flakiness for this test ${metric.testName}"
-            }
-            println("  Flakiness Status by both metrics: $status")
 
-            // Determine if test should be ignored
-            val shouldIgnore = metric.entropy > 0.13 || metric.flipRate > 0.09
+            // Determine if test should be ignored - any test that's not stable
+            val shouldIgnore = (metric.entropy >= 0.13 || metric.flipRate >= 0.09)
+
             // If test is flaky, add to the ignore list
             if (shouldIgnore) {
                 // Extract class name and method name from the test name
@@ -190,9 +218,9 @@ tasks.register("analyzeTestFlakiness") {
                 if (parts.size >= 2) {
                     val className = parts.dropLast(1).joinToString(".")
                     val methodName = parts.last()
-                    val reason = "Flaky test: Entropy=%.3f, FlipRate=%.3f".format(metric.entropy, metric.flipRate)
+                    val reason = "Flaky test: Entropy=%.3f, Status: $entropyStatus, FlipRate=%.3f, Status: $flipRateStatus".format(metric.entropy, metric.flipRate)
 
-                    testsToIgnore.getOrPut(className) { mutableListOf() }.add(methodName)
+                    testsToIgnore.getOrPut(className) { mutableListOf() }.add(methodName to reason)
                     println("  → WILL BE IGNORED: $methodName")
                 }
             }
@@ -200,82 +228,102 @@ tasks.register("analyzeTestFlakiness") {
 
         // Process each class that has flaky tests
         if (testsToIgnore.isNotEmpty()) {
-            println("\nAdding @Ignore annotations to flaky tests...")
+            println("\nAdding @Disabled annotations to flaky tests...")
 
             // Find source files and add @Ignore annotations
             var totalAnnotated = 0
-            testsToIgnore.forEach { (className, methodNames) ->
+            testsToIgnore.forEach { (className, methodPairs) ->
                 // Look for the test file
+                val shortClassName = className.substringAfterLast(".")
                 val testFile = project.projectDir.walk()
                     .filter {
                         it.isFile &&
                                 (it.name.endsWith(".kt") || it.name.endsWith(".java")) &&
-                                it.name.contains(className.substringAfterLast("."))
+                                it.name.contains(shortClassName)
                     }
                     .firstOrNull()
 
                 if (testFile != null) {
-                    val isKotlin = testFile.extension == "kt"
+                    println("Found test file: ${testFile.absolutePath}")
                     val content = testFile.readText()
                     val lines = content.lines().toMutableList()
 
                     // Add import for @Ignore if not present
-                    if (!content.contains("import org.junit.Ignore")) {
-                        var lastImportIndex = -1
+                    if (!content.contains("import org.junit.jupiter.api.Disabled")) {
+                        var importInsertIndex = 0
+
+                        // Find where to insert the import
                         for (i in lines.indices) {
                             if (lines[i].trimStart().startsWith("import ")) {
-                                lastImportIndex = i
+                                importInsertIndex = i + 1
+                            } else if (lines[i].trimStart().startsWith("class ")) {
+                                // We've hit the class declaration, so insert before this
+                                break
                             }
                         }
 
-                        if (lastImportIndex >= 0) {
-                            lines.add(lastImportIndex + 1, "import org.junit.Ignore")
-                        }
+                        // Insert the import
+                        lines.add(importInsertIndex, "import org.junit.jupiter.api.Disabled")
+                        println("Added import org.junit.jupiter.api.Disabled")
                     }
 
-                    // For each method to ignore, find and annotate it
-                    var linesAdded = 0
-                    methodNames.forEach { methodName ->
-                        // Find the method declaration
-                        for (i in 0 until lines.size) {
-                            val line = lines[i + linesAdded].trim()
+                    // Track how many lines we've added so far to adjust indices
+                    var linesAdded = if (!content.contains("import org.junit.jupiter.api.Disabled")) 1 else 0
 
-                            // Look for @Test annotation or method declaration
-                            val isTestAnnotation = line == "@Test"
-                            val isMethodDeclaration = line.contains("fun $methodName") ||
-                                    line.contains("void $methodName")
+                    // For each method to ignore
+                    methodPairs.forEach { (methodName, reason) ->
+                        var methodFound = false
+                        var lineIndex = 0
 
-                            if (isTestAnnotation) {
-                                // Check the next line to see if it's our target method
-                                val nextLine = lines.getOrNull(i + linesAdded + 1)?.trim() ?: ""
-                                if (nextLine.contains("fun $methodName") || nextLine.contains("void $methodName")) {
-                                    // Insert @Ignore before @Test
-                                    val indent = lines[i + linesAdded].takeWhile { it.isWhitespace() }
-                                    val reason = "Flaky test detected by automated analysis"
-                                    lines.add(i + linesAdded, "${indent}@Ignore(\"$reason\")")
-                                    linesAdded++ // Adjust for the added line
-                                    totalAnnotated++
-                                    println("  Added @Ignore to $methodName in ${testFile.name}")
-                                    break // Found and annotated this method
-                                }
-                            } else if (isMethodDeclaration) {
-                                // Check if the previous line has @Test and does not have @Ignore
-                                val prevLine = lines.getOrNull(i + linesAdded - 1)?.trim() ?: ""
-                                if (prevLine == "@Test") {
-                                    // Check if there's already an @Ignore even further back
-                                    val prevPrevLine = lines.getOrNull(i + linesAdded - 2)?.trim() ?: ""
-                                    if (!prevPrevLine.contains("@Ignore")) {
-                                        // Insert @Ignore before @Test
-                                        val indent = lines[i + linesAdded - 1].takeWhile { it.isWhitespace() }
-                                        val reason = "Flaky test detected by automated analysis"
-                                        lines.add(i + linesAdded - 1, "${indent}@Ignore(\"$reason\")")
-                                        linesAdded++ // Adjust for the added line
-                                        totalAnnotated++
-                                        println("  Added @Ignore to $methodName in ${testFile.name}")
+                        // Look through the file for the method
+                        while (lineIndex < lines.size) {
+                            val line = lines[lineIndex].trim()
+
+                            // Check if this line contains a method declaration matching our method name
+                            if (line.contains("fun $methodName") &&
+                                (line.contains("(") || lines.getOrNull(lineIndex + 1)?.contains("(") == true)) {
+
+                                // Look backward for the @Test annotation
+                                var testAnnotationIndex = -1
+                                for (i in lineIndex - 1 downTo Math.max(0, lineIndex - 5)) {
+                                    if (lines[i].trim() == "@Test" || lines[i].trim().startsWith("@Test(")) {
+                                        testAnnotationIndex = i
+                                        break
                                     }
                                 }
-                                break // Found this method, move to the next
+
+                                if (testAnnotationIndex != -1) {
+                                    // Check if @Ignore is already present
+                                    var hasIgnore = false
+                                    for (i in testAnnotationIndex - 3..testAnnotationIndex - 1) {
+                                        if (i >= 0 && lines[i].trim().startsWith("@Disabled")) {
+                                            hasIgnore = true
+                                            break
+                                        }
+                                    }
+
+                                    if (!hasIgnore) {
+                                        // Get the indentation from the @Test line
+                                        val indent = lines[testAnnotationIndex].takeWhile { it.isWhitespace() }
+
+                                        // Insert @Ignore annotation before @Test
+                                        lines.add(testAnnotationIndex, "${indent}@Disabled(\"$reason\")")
+                                        linesAdded++
+                                        totalAnnotated++
+                                        println("  Added @Disabled to $methodName in ${testFile.name}")
+                                        methodFound = true
+                                    } else {
+                                        println("  $methodName already has @Disabled annotation")
+                                    }
+                                }
+
+                                break // We found the method, no need to continue searching
                             }
+                            lineIndex++
+                        }
+
+                        if (!methodFound) {
+                            println("  WARNING: Could not find method $methodName in ${testFile.name}")
                         }
                     }
 
@@ -286,7 +334,7 @@ tasks.register("analyzeTestFlakiness") {
                 }
             }
 
-            println("\nSummary: Added @Ignore annotations to $totalAnnotated flaky tests")
+            println("\nSummary: Added @Disabled annotations to $totalAnnotated flaky tests")
         } else {
             println("\nNo flaky tests to ignore.")
         }
