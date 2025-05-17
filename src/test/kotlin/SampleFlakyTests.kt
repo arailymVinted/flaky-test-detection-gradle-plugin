@@ -1,11 +1,7 @@
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.RepeatedTest
 import java.util.concurrent.ThreadLocalRandom
-import java.time.LocalDateTime
-import java.util.concurrent.TimeUnit
-import kotlin.math.abs
-
+import org.junit.jupiter.api.Disabled
 /**
  * This test class contains:
  * - 18 consistently passing tests (testPassingXX)
@@ -218,6 +214,8 @@ class SampleFlakyTests {
 
     // ==================== LOW FLAKINESS TESTS (10-30% failure rate) ====================
 
+
+    @Disabled("Flaky test: Entropy=0.284, Status: Flaky, FlipRate=0.100, Status: Slightly Flaky (SF)")
     @Test
     fun testLowFlaky01_randomNumber() {
         // Target: ~97/101 passes (3-4% failure rate)
@@ -225,13 +223,15 @@ class SampleFlakyTests {
         assertFalse(random == 1, "Random number should not be 1")
     }
 
-    @Test
+  @Disabled("Flaky test: Entropy=0.433, Status: Flaky, FlipRate=0.160, Status: Flaky")
+  @Test
     fun testLowFlaky02_timeBased() {
         // Target: ~97/101 passes (3-4% failure rate)
         val millisecond = System.currentTimeMillis() % 100
         assertFalse(millisecond < 7, "Time-based condition failed (millisecond: $millisecond)")
     }
 
+    @Disabled("Flaky test: Entropy=0.140, Status: Slightly Flaky (SF), FlipRate=0.040, Status: Unknown")
     @Test
     fun testLowFlaky03_dateCheck() {
         // Target: ~97/101 passes (3-4% failure rate)
@@ -239,14 +239,16 @@ class SampleFlakyTests {
         assertTrue(value >= 0.02, "Random value $value should be >= 0.03")
     }
 
-    @Test
+ @Disabled("Flaky test: Entropy=0.240, Status: Flaky, FlipRate=0.080, Status: Unknown")
+ @Test
     fun testLowFlaky04_probabilisticTest() {
         // Target: ~97/101 passes (3-4% failure rate)
         val value = ThreadLocalRandom.current().nextDouble()
         assertTrue(value >= 0.03, "Random value $value should be >= 0.03")
     }
 
-    @Test
+   @Disabled("Flaky test: Entropy=0.284, Status: Flaky, FlipRate=0.100, Status: Slightly Flaky (SF)")
+   @Test
     fun testLowFlaky05_racyCounter() {
         // Target: ~97/101 passes (3-4% failure rate)
         var counter = 0
@@ -267,29 +269,33 @@ class SampleFlakyTests {
 
     // ==================== MEDIUM FLAKINESS TESTS (40-60% failure rate) ====================
 
-    @Test
-    fun testMediumFlaky01_coinFlip() {
+ @Disabled("Flaky test: Entropy=0.606, Status: Very Flaky (VF), FlipRate=0.250, Status: Flaky")
+ @Test
+    fun testMediumFlaky01_rand_num_not_equal_1() {
         // Targeting entropy ~0.3, flip rate ~0.2
         // Need passes around 80% of the time
         val random = ThreadLocalRandom.current().nextInt(1, 6)
         assertTrue(random != 1, "Random number should not be 1")
     }
 
-    @Test
+  @Disabled("Flaky test: Entropy=0.631, Status: Very Flaky (VF), FlipRate=0.260, Status: Flaky")
+  @Test
     fun testMediumFlaky02_diceRoll() {
         // Targeting entropy ~0.3, flip rate ~0.2
         val dice = ThreadLocalRandom.current().nextInt(1, 5)
         assertTrue(dice > 1, "Dice roll $dice should be > 1")
     }
 
-    @Test
+   @Disabled("Flaky test: Entropy=0.756, Status: Very Flaky (VF), FlipRate=0.420, Status: Very Flaky (VF)")
+   @Test
     fun testMediumFlaky03_randomRange() {
         // Targeting entropy ~0.3, flip rate ~0.2
         val value = ThreadLocalRandom.current().nextInt(1, 100)
         assertTrue(value > 20, "Value $value should be > 20")
     }
 
-    @Test
+   @Disabled("Flaky test: Entropy=0.737, Status: Very Flaky (VF), FlipRate=0.330, Status: Very Flaky (VF)")
+   @Test
     fun testMediumFlaky04_timeBasedMedium() {
         // Targeting entropy ~0.3, flip rate ~0.2
         val millisecond = System.currentTimeMillis() % 5
@@ -319,16 +325,10 @@ class SampleFlakyTests {
         Thread.sleep(15)
         assertEquals(10, sharedValue, "Expected 10 but got $sharedValue")
     }
-
-    @Test
-    @RepeatedTest(10)
-    fun testCoinFlip() {
-        val flip = ThreadLocalRandom.current().nextBoolean()
-        assertTrue(flip, "Coin flip should be head")
-    }
     // ==================== HIGH FLAKINESS TESTS (70-90% failure rate) ====================
 
-    @Test
+  @Disabled("Flaky test: Entropy=0.940, Status: Very Flaky (VF), FlipRate=0.440, Status: Very Flaky (VF)")
+  @Test
     fun testHighFlaky01_veryRandomNumber() {
         // Targeting entropy >0.48, flip rate >0.31
         // Need ~35-40% pass rate
@@ -336,21 +336,24 @@ class SampleFlakyTests {
         assertTrue(random >= 7, "Random number should be >= 7")
     }
 
-    @Test
+   @Disabled("Flaky test: Entropy=0.807, Status: Very Flaky (VF), FlipRate=0.340, Status: Very Flaky (VF)")
+   @Test
     fun testHighFlaky02_narrowTimeWindow() {
         // Targeting entropy >0.48, flip rate >0.31
         val millisecond = System.currentTimeMillis() % 10
         assertTrue(millisecond >= 6, "Millisecond should be >= 6, was $millisecond")
     }
 
-    @Test
+   @Disabled("Flaky test: Entropy=0.865, Status: Very Flaky (VF), FlipRate=0.440, Status: Very Flaky (VF)")
+   @Test
     fun testHighFlaky03_almostAlwaysFailing() {
         // Targeting entropy >0.48, flip rate >0.31
         val value = ThreadLocalRandom.current().nextDouble()
         assertTrue(value >= 0.65, "Value $value should be >= 0.65")
     }
 
-    @Test
+ @Disabled("Flaky test: Entropy=0.774, Status: Very Flaky (VF), FlipRate=0.340, Status: Very Flaky (VF)")
+ @Test
     fun testHighFlaky04_racyThreads() {
         // Adjust to ensure a high flip rate but not 100% failure
         val values = mutableListOf<Int>()
@@ -370,7 +373,8 @@ class SampleFlakyTests {
         assertEquals(expected, values, "Thread execution order $values should match expected order")
     }
 
-    @Test
+  @Disabled("Flaky test: Entropy=1.000, Status: Very Flaky (VF), FlipRate=0.470, Status: Very Flaky (VF)")
+  @Test
     fun testHighFlaky05_extremelyUnlikely() {
         // Targeting entropy >0.48, flip rate >0.31
         val timeValue = ThreadLocalRandom.current().nextInt(1, 3)

@@ -5,20 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="21d11c58-44b0-4968-9e3c-f860cde84742" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/gradle.properties" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.properties" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/gradlew" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/gradlew.bat" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/settings.gradle.kts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Main.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/kotlin/SampleFlakyTests.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.github/workflows/ci.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/ci.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/SampleFlakyTests.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/SampleFlakyTests.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -123,15 +113,17 @@
     &quot;Gradle.SampleFlakyTests.test stable operation.executor&quot;: &quot;Run&quot;,
     &quot;Gradle.SampleFlakyTests.test with random input.executor&quot;: &quot;Run&quot;,
     &quot;Gradle.SampleFlakyTests.testCoinFlip.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.SampleFlakyTests.testLowFlaky05_racyCounter.executor&quot;: &quot;Run&quot;,
     &quot;Gradle.SampleFlakyTests.testPassing01_simpleAddition.executor&quot;: &quot;Run&quot;,
     &quot;Gradle.flaky-test-detection-gradle-plugin [analyzeTestFlakiness].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.flaky-test-detection-gradle-plugin [build].executor&quot;: &quot;Run&quot;,
     &quot;Gradle.flaky-test-detection-gradle-plugin [clean].executor&quot;: &quot;Run&quot;,
     &quot;Gradle.flaky-test-detection-gradle-plugin [runTestsMultipleTimes].executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.go.migrated.go.modules.settings&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;test-ci-workflow&quot;,
     &quot;go.import.settings.migrated&quot;: &quot;true&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
@@ -143,7 +135,7 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
-  <component name="RunManager" selected="Gradle.flaky-test-detection-gradle-plugin [analyzeTestFlakiness]">
+  <component name="RunManager" selected="Gradle.SampleFlakyTests">
     <configuration name="SampleFlakyTests" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -168,7 +160,7 @@
       <RunAsTest>true</RunAsTest>
       <method v="2" />
     </configuration>
-    <configuration name="SampleFlakyTests.testCoinFlip" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+    <configuration name="SampleFlakyTests.testLowFlaky05_racyCounter" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -181,7 +173,7 @@
           <list>
             <option value=":test" />
             <option value="--tests" />
-            <option value="&quot;SampleFlakyTests.testCoinFlip&quot;" />
+            <option value="&quot;SampleFlakyTests.testLowFlaky05_racyCounter&quot;" />
           </list>
         </option>
         <option name="vmOptions" />
@@ -260,11 +252,11 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Gradle.flaky-test-detection-gradle-plugin [analyzeTestFlakiness]" />
-        <item itemvalue="Gradle.SampleFlakyTests.testCoinFlip" />
-        <item itemvalue="Gradle.flaky-test-detection-gradle-plugin [runTestsMultipleTimes]" />
         <item itemvalue="Gradle.SampleFlakyTests" />
+        <item itemvalue="Gradle.flaky-test-detection-gradle-plugin [analyzeTestFlakiness]" />
+        <item itemvalue="Gradle.flaky-test-detection-gradle-plugin [runTestsMultipleTimes]" />
         <item itemvalue="Gradle.flaky-test-detection-gradle-plugin [clean]" />
+        <item itemvalue="Gradle.SampleFlakyTests.testLowFlaky05_racyCounter" />
       </list>
     </recent_temporary>
   </component>
@@ -282,6 +274,8 @@
       <workItem from="1744354642622" duration="9293000" />
       <workItem from="1745828690367" duration="17808000" />
       <workItem from="1746432906929" duration="25000" />
+      <workItem from="1746804503309" duration="18572000" />
+      <workItem from="1747508082787" duration="494000" />
     </task>
     <servers />
   </component>
