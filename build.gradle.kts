@@ -2,10 +2,16 @@ import kotlin.math.ln
 
 plugins {
     kotlin("jvm") version "1.9.22"
-    id("org.jlleitschuh.gradle.ktlint") version "11.6.1" // Use the latest version
-    id("org.jlleitschuh.gradle.ktlint-html") version "11.6.1" // HTML report plugin
+    id("io.gitlab.arturbosch.detekt") version("1.23.8")
 }
 
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    reports {
+        html.required.set(true)
+        xml.required.set(false)
+        txt.required.set(false)
+    }
+}
 
 group = "lt.vilniustech.aissayeva"
 version = "1.0-SNAPSHOT"

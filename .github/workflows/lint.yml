@@ -1,4 +1,4 @@
-name: Kotlin Lint Check
+name: Detekt Analysis
 
 on:
   push:
@@ -7,63 +7,29 @@ on:
     branches: [ main ]
 
 jobs:
-  ktlint:
-    name: Run ktlint check
+  detekt:
+    name: Run Detekt
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4  # Updated to v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Set up JDK
-        uses: actions/setup-java@v4  # Updated to v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          java-version: '17'
           distribution: 'temurin'
-          cache: gradle
+          java-version: '17'
 
-      - name: Make Gradle wrapper executable
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Run ktlint check
-        run: ./gradlew ktlintCheck
-        continue-on-error: true
+      - name: Run Detekt
+        run: ./gradlew detekt
 
-      # Simplified report generation - one command at a time for better error handling
-      - name: Generate Checkstyle report
+      - name: Show Detekt Findings
         if: always()
-        run: ./gradlew ktlintCheckstyleReport
-        continue-on-error: true
-
-      # Only run HTML report if you've configured it in your build.gradle
-      - name: Generate HTML report
-        if: always()
-        run: ./gradlew ktlintHtmlReport
-        continue-on-error: true
-
-      # Updated artifact upload step
-      - name: Upload ktlint reports
-        if: always()
-        uses: actions/upload-artifact@v4  # Updated to v4
-        with:
-          name: ktlint-reports
-          path: build/reports/ktlint/
-          retention-days: 14
-          if-no-files-found: warn  # Don't fail if files aren't found
-
-      # Simplified annotations - only if the report exists
-      - name: Check if report exists
-        id: check_files
-        run: |
-          if [ -f "$(find . -name 'checkstyle.xml' -path '*/build/reports/ktlint/*' | head -n 1)" ]; then
-            echo "report_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "report_exists=false" >> $GITHUB_OUTPUT
-          fi
-
-      # Only run annotations if report exists
-      - name: GitHub Actions Annotations
-        if: steps.check_files.outputs.report_exists == 'true'
-        uses: yutailang0119/action-ktlint@v3
-        with:
-          report-path: "$(find . -name 'checkstyle.xml' -path '*/build/reports/ktlint/*' | head -n 1)"
+        run: cat build/reports/detekt/detekt.txt || echo "No detekt.txt report found."
