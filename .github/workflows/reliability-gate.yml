@@ -31,4 +31,4 @@ jobs:
           # Set the base branch to compare against
           BASE_BRANCH=${{ github.base_ref }}
           echo "Running reliability gate against base branch: ${BASE_BRANCH}"
-          ./gradlew reliabilityGate -PreliabilityGate.baseBranch=origin/${BASE_BRANCH} -PreliabilityGate.repeatCount=5
+          ./gradlew reliabilityGate -PreliabilityGate.baseBranch=origin/${BASE_BRANCH}
