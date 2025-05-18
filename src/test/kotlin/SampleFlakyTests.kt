@@ -127,6 +127,11 @@ class SampleFlakyTests {
     }
 
     @Test
+    fun testFailing01_wrongSubtraction() {
+        assertEquals(4, 2 - 2, "2 - 2 should equal 0, not 4")
+    }
+
+    @Test
     fun testFailing02_incorrectString() {
         val text = "Hello World"
         assertEquals("Hello Universe", text, "Strings don't match")
