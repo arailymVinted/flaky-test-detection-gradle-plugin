@@ -1,149 +1,119 @@
-// reliability-gate.gradle.kts - A simple implementation of the reliability gate
+// reliability-gate.gradle.kts - Simplified implementation focused on core functionality
 
-// This task runs new test methods multiple times to detect flaky tests
 tasks.register("reliabilityGate") {
     description = "Run new test methods multiple times to detect flaky tests"
     group = "verification"
 
     doLast {
-        // Configuration with defaults
+        // Configuration
         val repeatCount = project.findProperty("reliabilityGate.repeatCount")?.toString()?.toInt() ?: 5
         val baseBranch = project.findProperty("reliabilityGate.baseBranch")?.toString() ?: "origin/main"
-        val skipTestsWithPrefix = project.findProperty("reliabilityGate.skipTestsWithPrefix")?.toString()?.split(",") ?: listOf()
 
-        // Find modified test files
-        val modifiedFiles = executeCommand("git diff --name-only $baseBranch -- src/test")
-            .split("\n")
-            .filter { it.isNotEmpty() && (it.endsWith(".kt") || it.endsWith(".java")) }
+        println("🔍 Reliability Gate: Checking for new tests (comparing with $baseBranch)")
 
-        logger.lifecycle("Found ${modifiedFiles.size} modified test files")
+        // Find new test methods
+        val newTests = findNewTests(baseBranch)
 
-        // Find new test methods in these files
-        val newTestMethods = mutableListOf<String>()
-
-        modifiedFiles.forEach { filePath ->
-            // Get current file content
-            val file = file(filePath)
-            if (!file.exists()) {
-                logger.warn("File not found: $filePath")
-                return@forEach
-            }
-
-            val currentContent = file.readText()
-
-            // Get file content from base branch (if exists)
-            val baseContent = try {
-                executeCommand("git show $baseBranch:$filePath")
-            } catch (e: Exception) {
-                "" // File might be new
-            }
-
-            // Extract package and class name
-            var packageName = extractPattern(currentContent, "package\\s+([\\w.]+)")
-
-            // Extract class name from file name and content
-            val classNameFromFile = filePath.substringAfterLast("/").removeSuffix(".kt").removeSuffix(".java")
-            val classNameFromContent = extractPattern(currentContent, "class\\s+(\\w+)")
-            val className = classNameFromContent.ifEmpty { classNameFromFile }
-
-            logger.lifecycle("File: $filePath, Package: $packageName, Class: $className")
-
-            // Find test methods in current and base content
-            val currentTestMethods = findTestMethods(currentContent)
-            val baseTestMethods = findTestMethods(baseContent)
-
-            logger.lifecycle("Current test methods: $currentTestMethods")
-            logger.lifecycle("Base test methods: $baseTestMethods")
-
-            val newMethods = currentTestMethods - baseTestMethods
-
-            // Add test methods with fully qualified name
-            newMethods.forEach { method ->
-                // Construct fully qualified test name
-                val fullName = if (packageName.isEmpty()) {
-                    "$className.$method"
-                } else {
-                    "$packageName.$className.$method"
-                }
-                newTestMethods.add(fullName)
-            }
-        }
-
-        // Filter out tests to skip
-        val filteredTestMethods = newTestMethods.filter { testMethod ->
-            !skipTestsWithPrefix.any { prefix -> testMethod.contains(prefix) }
-        }
-
-        if (filteredTestMethods.isEmpty()) {
-            logger.lifecycle("No new test methods found. Reliability gate passed!")
+        if (newTests.isEmpty()) {
+            println("✅ Reliability Gate: No new test methods found. Gate passed!")
             return@doLast
         }
 
-        logger.lifecycle("Found ${filteredTestMethods.size} new test methods:")
-        filteredTestMethods.forEach { logger.lifecycle("- $it") }
+        println("📊 Reliability Gate: Found ${newTests.size} new test methods")
 
-        // Run each new test multiple times
-        var anyTestFailed = false
+        // Track results
+        val results = mutableMapOf<String, Pair<Int, Int>>() // test -> (passes, failures)
+        var anyFailures = false
 
-        filteredTestMethods.forEach { testMethod ->
-            logger.lifecycle("Testing reliability of: $testMethod")
-            var failCount = 0
-            var passCount = 0
+        // Run each test multiple times
+        newTests.forEach { test ->
+            println("\n🧪 Testing: $test")
+            var passes = 0
+            var failures = 0
 
             for (i in 1..repeatCount) {
-                logger.lifecycle("Run $i/$repeatCount")
-
-                // Use the fully qualified test name for the Gradle test task
-                val gradleTestFilter = testMethod
+                print("  Run $i/$repeatCount: ")
 
                 try {
                     val result = project.exec {
-                        commandLine("./gradlew", "test", "--tests", gradleTestFilter)
+                        commandLine("./gradlew", "test", "--tests", test)
                         isIgnoreExitValue = true
                     }
 
                     if (result.exitValue == 0) {
-                        logger.lifecycle("✓ Run $i passed")
-                        passCount++
+                        println("✓ PASS")
+                        passes++
                     } else {
-                        logger.lifecycle("✗ Run $i failed")
-                        failCount++
-                        anyTestFailed = true
+                        println("✗ FAIL")
+                        failures++
+                        anyFailures = true
                     }
                 } catch (e: Exception) {
-                    logger.lifecycle("✗ Run $i failed with exception: ${e.message}")
-                    failCount++
-                    anyTestFailed = true
+                    println("✗ FAIL (${e.message})")
+                    failures++
+                    anyFailures = true
                 }
             }
 
-            if (failCount > 0) {
-                logger.warn("Test $testMethod failed $failCount out of $repeatCount times (passed $passCount times)")
-            } else {
-                logger.lifecycle("Test $testMethod passed all $repeatCount runs")
-
-                // For tests that contain "Failing" in the name but passed all runs
-                if (testMethod.contains("Failing")) {
-                    logger.warn("⚠️ Warning: Test '$testMethod' has 'Failing' in its name but passed all runs. This might indicate a problem.")
-                }
-            }
+            results[test] = passes to failures
         }
 
-        // Report results
-        if (anyTestFailed) {
+        // Print summary
+        println("\n📋 RELIABILITY GATE SUMMARY")
+        println("=======================")
+        results.forEach { (test, counts) ->
+            val (passes, failures) = counts
+            val passRate = (passes.toDouble() / repeatCount) * 100
+            val status = if (failures > 0) "❌ FLAKY" else "✅ STABLE"
+
+            println("$status - $test (${passes}/${repeatCount} - ${passRate.toInt()}% pass rate)")
+        }
+        println("=======================")
+
+        // Pass/fail the build
+        if (anyFailures) {
             throw GradleException("Reliability gate failed! Some tests showed flaky behavior.")
         } else {
-            logger.lifecycle("Reliability gate passed! All new tests passed $repeatCount consecutive runs.")
-
-            // Check if any "Failing" tests unexpectedly passed
-            val unexpectedlyPassingTests = filteredTestMethods.filter { it.contains("Failing") }
-            if (unexpectedlyPassingTests.isNotEmpty()) {
-                logger.warn("⚠️ Warning: ${unexpectedlyPassingTests.size} tests with 'Failing' in their name passed all runs:")
-                unexpectedlyPassingTests.forEach { logger.warn("  - $it") }
-                logger.warn("This might indicate issues with your test execution. These tests were expected to fail but didn't.")
-            }
+            println("✅ Reliability Gate passed! All new tests passed $repeatCount consecutive runs.")
         }
     }
+}
+
+// Find new test methods added compared to base branch
+fun findNewTests(baseBranch: String): List<String> {
+    val result = mutableListOf<String>()
+
+    // Get modified test files
+    val modifiedFiles = executeCommand("git diff --name-only $baseBranch -- src/test")
+        .split("\n")
+        .filter { it.isNotEmpty() && (it.endsWith(".kt") || it.endsWith(".java")) }
+
+    modifiedFiles.forEach { filePath ->
+        val file = file(filePath)
+        if (!file.exists()) return@forEach
+
+        val currentContent = file.readText()
+        val baseContent = try {
+            executeCommand("git show $baseBranch:$filePath")
+        } catch (e: Exception) {
+            "" // File might be new
+        }
+
+        // Extract class name from file
+        val className = filePath.substringAfterLast("/").removeSuffix(".kt").removeSuffix(".java")
+
+        // Find test methods in current and base content
+        val currentTestMethods = findTestMethods(currentContent)
+        val baseTestMethods = findTestMethods(baseContent)
+        val newMethods = currentTestMethods - baseTestMethods
+
+        // Add fully qualified test names
+        newMethods.forEach { method ->
+            result.add("$className.$method")
+        }
+    }
+
+    return result
 }
 
 // Helper function to execute a command and return its output
@@ -156,17 +126,10 @@ fun executeCommand(command: String): String {
     val exitCode = process.waitFor()
 
     if (exitCode != 0) {
-        throw RuntimeException("Command failed with exit code $exitCode: $command\nOutput: $output")
+        throw RuntimeException("Command failed with exit code $exitCode: $command")
     }
 
     return output
-}
-
-// Helper function to extract a pattern from text
-fun extractPattern(text: String, pattern: String): String {
-    val regex = pattern.toRegex()
-    val match = regex.find(text)
-    return match?.groupValues?.get(1) ?: ""
 }
 
 // Helper function to find test methods in file content

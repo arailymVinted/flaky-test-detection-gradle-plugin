@@ -27,45 +27,8 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run reliability gate
-        id: reliability-gate
-        run: ./gradlew reliabilityGate
-        continue-on-error: true
-
-      - name: Generate reliability report
-        if: always()
         run: |
-          echo "## Reliability Gate Results" > reliability-report.md
-          if [ "${{ steps.reliability-gate.outcome }}" == "success" ]; then
-            echo "✅ **Success**: All new tests passed multiple consecutive runs!" >> reliability-report.md
-          else
-            echo "❌ **Failure**: Some tests showed flaky behavior!" >> reliability-report.md
-            echo "Please fix the flaky tests before merging this PR." >> reliability-report.md
-          fi
-          
-          # Add detailed logs
-          echo "### Detailed Log" >> reliability-report.md
-          echo '```' >> reliability-report.md
-          ./gradlew reliabilityGate --quiet >> reliability-report.md || true
-          echo '```' >> reliability-report.md
-
-      - name: Comment on PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const report = fs.readFileSync('reliability-report.md', 'utf8');
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: report
-            });
-
-      - name: Enforce reliability gate
-        if: steps.reliability-gate.outcome != 'success'
-        run: |
-          echo "Reliability gate failed!"
-          exit 1
+          # Set the base branch to compare against
+          BASE_BRANCH=${{ github.base_ref }}
+          echo "Running reliability gate against base branch: ${BASE_BRANCH}"
+          ./gradlew reliabilityGate -PreliabilityGate.baseBranch=origin/${BASE_BRANCH} -PreliabilityGate.repeatCount=5
