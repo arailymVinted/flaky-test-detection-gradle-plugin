@@ -282,6 +282,13 @@ class SampleFlakyTests {
     }
 
     @Test
+    fun testCoinFlip() {
+        val flip = ThreadLocalRandom.current().nextBoolean()
+        assertTrue(flip, "Coin flip should be head")
+    }
+
+
+    @Test
     fun testMediumFlaky02_diceRoll() {
         // Targeting entropy ~0.3, flip rate ~0.2
         val dice = ThreadLocalRandom.current().nextInt(1, 5)
@@ -326,12 +333,6 @@ class SampleFlakyTests {
         assertEquals(10, sharedValue, "Expected 10 but got $sharedValue")
     }
 
-    @Test
-    @RepeatedTest(10)
-    fun testCoinFlip() {
-        val flip = ThreadLocalRandom.current().nextBoolean()
-        assertTrue(flip, "Coin flip should be head")
-    }
     // ==================== HIGH FLAKINESS TESTS (70-90% failure rate) ====================
 
     @Test
