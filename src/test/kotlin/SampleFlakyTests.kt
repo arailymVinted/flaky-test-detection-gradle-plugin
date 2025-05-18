@@ -23,6 +23,10 @@ class SampleFlakyTests {
     fun testPassing01_simpleAddition() {
         assertEquals(4, 2 + 2)
     }
+    @Test
+    fun testPassing01_simpleSubAddition() {
+        assertEquals(4, 2 + 2)
+    }
 
     @Test
     fun testPassing02_stringEquality() {

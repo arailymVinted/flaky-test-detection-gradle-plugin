@@ -10,6 +10,7 @@ version = "1.0-SNAPSHOT"
 repositories {
     mavenCentral()
 }
+apply(from = "reliability-gate.gradle.kts")
 
 tasks.test {
     useJUnitPlatform()
