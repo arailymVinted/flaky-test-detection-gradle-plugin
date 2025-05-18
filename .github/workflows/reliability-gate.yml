@@ -3,8 +3,6 @@ name: Reliability Gate
 on:
   pull_request:
     branches: [ main ]
-    paths:
-      - 'src/test/**'  # Only trigger on changes to test files
 
 jobs:
   reliability-gate:
@@ -27,8 +25,4 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run reliability gate
-        run: |
-          # Set the base branch to compare against
-          BASE_BRANCH=${{ github.base_ref }}
-          echo "Running reliability gate against base branch: ${BASE_BRANCH}"
-          ./gradlew reliabilityGate -PreliabilityGate.baseBranch=origin/${BASE_BRANCH}
+        run: ./gradlew reliabilityGate
