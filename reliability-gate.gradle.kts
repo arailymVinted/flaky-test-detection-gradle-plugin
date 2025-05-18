@@ -6,18 +6,19 @@ tasks.register("reliabilityGate") {
     group = "verification"
 
     doLast {
-        // 1. Get configuration
-        val repeatCount = 5
-        val baseBranch = "origin/main"
+        // Configuration with defaults
+        val repeatCount = project.findProperty("reliabilityGate.repeatCount")?.toString()?.toInt() ?: 5
+        val baseBranch = project.findProperty("reliabilityGate.baseBranch")?.toString() ?: "origin/main"
+        val skipTestsWithPrefix = project.findProperty("reliabilityGate.skipTestsWithPrefix")?.toString()?.split(",") ?: listOf()
 
-        // 2. Find modified test files
+        // Find modified test files
         val modifiedFiles = executeCommand("git diff --name-only $baseBranch -- src/test")
             .split("\n")
             .filter { it.isNotEmpty() && (it.endsWith(".kt") || it.endsWith(".java")) }
 
         logger.lifecycle("Found ${modifiedFiles.size} modified test files")
 
-        // 3. Find new test methods in these files
+        // Find new test methods in these files
         val newTestMethods = mutableListOf<String>()
 
         modifiedFiles.forEach { filePath ->
@@ -37,15 +38,15 @@ tasks.register("reliabilityGate") {
                 "" // File might be new
             }
 
-            // Log the first 200 characters of the file for debugging
-            logger.lifecycle("File content preview: ${currentContent.take(200)}")
-
-            // Extract package name from import statements or package declaration
+            // Extract package and class name
             var packageName = extractPattern(currentContent, "package\\s+([\\w.]+)")
 
-            // Extract class name from file name
-            val className = filePath.substringAfterLast("/").removeSuffix(".kt").removeSuffix(".java")
-            logger.lifecycle("Using filename as class name: $className")
+            // Extract class name from file name and content
+            val classNameFromFile = filePath.substringAfterLast("/").removeSuffix(".kt").removeSuffix(".java")
+            val classNameFromContent = extractPattern(currentContent, "class\\s+(\\w+)")
+            val className = classNameFromContent.ifEmpty { classNameFromFile }
+
+            logger.lifecycle("File: $filePath, Package: $packageName, Class: $className")
 
             // Find test methods in current and base content
             val currentTestMethods = findTestMethods(currentContent)
@@ -56,54 +57,91 @@ tasks.register("reliabilityGate") {
 
             val newMethods = currentTestMethods - baseTestMethods
 
-            // Add test methods with correct class name
+            // Add test methods with fully qualified name
             newMethods.forEach { method ->
-                // For JUnit5 tests, we need to use the class name as the identifier
-                val fullName = "$className.$method"
+                // Construct fully qualified test name
+                val fullName = if (packageName.isEmpty()) {
+                    "$className.$method"
+                } else {
+                    "$packageName.$className.$method"
+                }
                 newTestMethods.add(fullName)
             }
         }
 
-        if (newTestMethods.isEmpty()) {
+        // Filter out tests to skip
+        val filteredTestMethods = newTestMethods.filter { testMethod ->
+            !skipTestsWithPrefix.any { prefix -> testMethod.contains(prefix) }
+        }
+
+        if (filteredTestMethods.isEmpty()) {
             logger.lifecycle("No new test methods found. Reliability gate passed!")
             return@doLast
         }
 
-        logger.lifecycle("Found ${newTestMethods.size} new test methods:")
-        newTestMethods.forEach { logger.lifecycle("- $it") }
+        logger.lifecycle("Found ${filteredTestMethods.size} new test methods:")
+        filteredTestMethods.forEach { logger.lifecycle("- $it") }
 
-        // 4. Run each new test multiple times
+        // Run each new test multiple times
         var anyTestFailed = false
 
-        newTestMethods.forEach { testMethod ->
+        filteredTestMethods.forEach { testMethod ->
             logger.lifecycle("Testing reliability of: $testMethod")
             var failCount = 0
+            var passCount = 0
 
             for (i in 1..repeatCount) {
                 logger.lifecycle("Run $i/$repeatCount")
 
+                // Use the fully qualified test name for the Gradle test task
+                val gradleTestFilter = testMethod
+
                 try {
-                    executeCommand("./gradlew test --tests $testMethod")
-                    logger.lifecycle("✓ Run $i passed")
+                    val result = project.exec {
+                        commandLine("./gradlew", "test", "--tests", gradleTestFilter)
+                        isIgnoreExitValue = true
+                    }
+
+                    if (result.exitValue == 0) {
+                        logger.lifecycle("✓ Run $i passed")
+                        passCount++
+                    } else {
+                        logger.lifecycle("✗ Run $i failed")
+                        failCount++
+                        anyTestFailed = true
+                    }
                 } catch (e: Exception) {
-                    logger.lifecycle("✗ Run $i failed")
+                    logger.lifecycle("✗ Run $i failed with exception: ${e.message}")
                     failCount++
                     anyTestFailed = true
                 }
             }
 
             if (failCount > 0) {
-                logger.warn("Test $testMethod failed $failCount out of $repeatCount times")
+                logger.warn("Test $testMethod failed $failCount out of $repeatCount times (passed $passCount times)")
             } else {
                 logger.lifecycle("Test $testMethod passed all $repeatCount runs")
+
+                // For tests that contain "Failing" in the name but passed all runs
+                if (testMethod.contains("Failing")) {
+                    logger.warn("⚠️ Warning: Test '$testMethod' has 'Failing' in its name but passed all runs. This might indicate a problem.")
+                }
             }
         }
 
-        // 5. Report results
+        // Report results
         if (anyTestFailed) {
             throw GradleException("Reliability gate failed! Some tests showed flaky behavior.")
         } else {
             logger.lifecycle("Reliability gate passed! All new tests passed $repeatCount consecutive runs.")
+
+            // Check if any "Failing" tests unexpectedly passed
+            val unexpectedlyPassingTests = filteredTestMethods.filter { it.contains("Failing") }
+            if (unexpectedlyPassingTests.isNotEmpty()) {
+                logger.warn("⚠️ Warning: ${unexpectedlyPassingTests.size} tests with 'Failing' in their name passed all runs:")
+                unexpectedlyPassingTests.forEach { logger.warn("  - $it") }
+                logger.warn("This might indicate issues with your test execution. These tests were expected to fail but didn't.")
+            }
         }
     }
 }
