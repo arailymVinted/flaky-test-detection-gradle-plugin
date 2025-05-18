@@ -1,0 +1,71 @@
+name: Reliability Gate
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/test/**'  # Only trigger on changes to test files
+
+jobs:
+  reliability-gate:
+    name: Test Reliability Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Important to fetch full history for git diff
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'  # Adjust to match your project's Java version
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run reliability gate
+        id: reliability-gate
+        run: ./gradlew reliabilityGate
+        continue-on-error: true
+
+      - name: Generate reliability report
+        if: always()
+        run: |
+          echo "## Reliability Gate Results" > reliability-report.md
+          if [ "${{ steps.reliability-gate.outcome }}" == "success" ]; then
+            echo "✅ **Success**: All new tests passed multiple consecutive runs!" >> reliability-report.md
+          else
+            echo "❌ **Failure**: Some tests showed flaky behavior!" >> reliability-report.md
+            echo "Please fix the flaky tests before merging this PR." >> reliability-report.md
+          fi
+          
+          # Add detailed logs
+          echo "### Detailed Log" >> reliability-report.md
+          echo '```' >> reliability-report.md
+          ./gradlew reliabilityGate --quiet >> reliability-report.md || true
+          echo '```' >> reliability-report.md
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('reliability-report.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
+
+      - name: Enforce reliability gate
+        if: steps.reliability-gate.outcome != 'success'
+        run: |
+          echo "Reliability gate failed!"
+          exit 1

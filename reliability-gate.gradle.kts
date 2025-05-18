@@ -40,21 +40,12 @@ tasks.register("reliabilityGate") {
             // Log the first 200 characters of the file for debugging
             logger.lifecycle("File content preview: ${currentContent.take(200)}")
 
-            // Extract package and class name
+            // Extract package name from import statements or package declaration
             var packageName = extractPattern(currentContent, "package\\s+([\\w.]+)")
-            var className = extractPattern(currentContent, "class\\s+(\\w+)")
 
-            // Special case for files without package or with different class pattern
-            if (packageName.isEmpty()) {
-                // Assume default package if not specified
-                packageName = ""
-            }
-
-            if (className.isEmpty()) {
-                // Try to extract class name from file name if not found in content
-                className = filePath.substringAfterLast("/").removeSuffix(".kt").removeSuffix(".java")
-                logger.lifecycle("Using filename as class name: $className")
-            }
+            // Extract class name from file name
+            val className = filePath.substringAfterLast("/").removeSuffix(".kt").removeSuffix(".java")
+            logger.lifecycle("Using filename as class name: $className")
 
             // Find test methods in current and base content
             val currentTestMethods = findTestMethods(currentContent)
@@ -65,13 +56,10 @@ tasks.register("reliabilityGate") {
 
             val newMethods = currentTestMethods - baseTestMethods
 
-            // Add fully qualified names
+            // Add test methods with correct class name
             newMethods.forEach { method ->
-                val fullName = if (packageName.isEmpty()) {
-                    "$className.$method"
-                } else {
-                    "$packageName.$className.$method"
-                }
+                // For JUnit5 tests, we need to use the class name as the identifier
+                val fullName = "$className.$method"
                 newTestMethods.add(fullName)
             }
         }
