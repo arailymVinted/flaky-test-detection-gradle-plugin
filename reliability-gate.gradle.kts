@@ -37,23 +37,42 @@ tasks.register("reliabilityGate") {
                 "" // File might be new
             }
 
-            // Extract package and class name
-            val packageName = extractPattern(currentContent, "package\\s+([\\w.]+)")
-            val className = extractPattern(currentContent, "class\\s+(\\w+)")
+            // Log the first 200 characters of the file for debugging
+            logger.lifecycle("File content preview: ${currentContent.take(200)}")
 
-            if (packageName.isEmpty() || className.isEmpty()) {
-                logger.warn("Could not extract package or class name from $filePath")
-                return@forEach
+            // Extract package and class name
+            var packageName = extractPattern(currentContent, "package\\s+([\\w.]+)")
+            var className = extractPattern(currentContent, "class\\s+(\\w+)")
+
+            // Special case for files without package or with different class pattern
+            if (packageName.isEmpty()) {
+                // Assume default package if not specified
+                packageName = ""
+            }
+
+            if (className.isEmpty()) {
+                // Try to extract class name from file name if not found in content
+                className = filePath.substringAfterLast("/").removeSuffix(".kt").removeSuffix(".java")
+                logger.lifecycle("Using filename as class name: $className")
             }
 
             // Find test methods in current and base content
             val currentTestMethods = findTestMethods(currentContent)
             val baseTestMethods = findTestMethods(baseContent)
+
+            logger.lifecycle("Current test methods: $currentTestMethods")
+            logger.lifecycle("Base test methods: $baseTestMethods")
+
             val newMethods = currentTestMethods - baseTestMethods
 
             // Add fully qualified names
             newMethods.forEach { method ->
-                newTestMethods.add("$packageName.$className.$method")
+                val fullName = if (packageName.isEmpty()) {
+                    "$className.$method"
+                } else {
+                    "$packageName.$className.$method"
+                }
+                newTestMethods.add(fullName)
             }
         }
 
