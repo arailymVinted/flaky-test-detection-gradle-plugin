@@ -24,44 +24,62 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
-
+      # Find new tests
       - name: Find new tests
         id: find-new-tests
         run: |
           # Get the base branch reference
           BASE_REF=${{ github.base_ref }}
 
-          # Find all new or modified Kotlin test files in this PR
-          NEW_TEST_FILES=$(git diff --name-only --diff-filter=AM origin/$BASE_REF... | grep -E ".*Test\.kt$" || echo "")
+          # Find all Kotlin test files modified in this PR
+          MODIFIED_TEST_FILES=$(git diff --name-only --diff-filter=M origin/$BASE_REF... | grep -E ".*Test\.kt$" || echo "")
+          NEW_TEST_FILES=$(git diff --name-only --diff-filter=A origin/$BASE_REF... | grep -E ".*Test\.kt$" || echo "")
 
-          if [ -z "$NEW_TEST_FILES" ]; then
-            echo "No new test files found"
+          TEST_FILES="$MODIFIED_TEST_FILES $NEW_TEST_FILES"
+
+          if [ -z "$TEST_FILES" ]; then
+            echo "No modified or new test files found"
             echo "new_tests=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # Check if there are any new test methods in these files
-          HAS_NEW_TESTS=false
+          # Check for new test methods in modified files
           CLASSES=""
+          HAS_NEW_TESTS=false
 
-          for FILE in $NEW_TEST_FILES; do
-            # Get test methods in current version
-            CURRENT_TESTS=$(grep -E "^\s*@Test" "$FILE" | wc -l)
-
-            # Get test methods in base branch version
-            BASE_TESTS=$(git show origin/$BASE_REF:"$FILE" 2>/dev/null | grep -E "^\s*@Test" | wc -l || echo "0")
-
+          for FILE in $TEST_FILES; do
             # Extract package name from the file
             PACKAGE=$(grep -E "^package " "$FILE" | sed 's/package //g' | sed 's/;//g')
 
             # Extract class name from filename
             CLASS_NAME=$(basename "$FILE" .kt)
 
-            # Check if there are new tests
-            if [ "$CURRENT_TESTS" -gt "$BASE_TESTS" ]; then
+            # If new file, all tests are new
+            if [[ "$NEW_TEST_FILES" == *"$FILE"* ]]; then
               HAS_NEW_TESTS=true
+              if [ -z "$CLASSES" ]; then
+                CLASSES="$PACKAGE.$CLASS_NAME"
+              else
+                CLASSES="$CLASSES,$PACKAGE.$CLASS_NAME"
+              fi
+              continue
+            fi
 
-              # Append to list of classes
+            # For modified files, find new test methods by comparing with base branch
+            CURRENT_TEST_METHODS=$(grep -E "fun test[A-Za-z0-9_]+\(" "$FILE" | sed 's/fun //g' | sed 's/(.*//g')
+            BASE_TEST_METHODS=$(git show origin/$BASE_REF:"$FILE" 2>/dev/null | grep -E "fun test[A-Za-z0-9_]+\(" | sed 's/fun //g' | sed 's/(.*//g' || echo "")
+
+            # Check if there are new test methods
+            NEW_METHODS=false
+            for METHOD in $CURRENT_TEST_METHODS; do
+              if [[ "$BASE_TEST_METHODS" != *"$METHOD"* ]]; then
+                NEW_METHODS=true
+                break
+              fi
+            done
+
+            if [ "$NEW_METHODS" = true ]; then
+              HAS_NEW_TESTS=true
               if [ -z "$CLASSES" ]; then
                 CLASSES="$PACKAGE.$CLASS_NAME"
               else
